@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <title>Υπολογιστής Κέρδους/Ζημιάς & Αποτίμησης Επένδυσης</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width:650px; margin:40px auto; line-height:1.5; color:#111; }
+    h1 { text-align:center; }
+    .card { border:1px solid #ddd; padding:20px; border-radius:10px; box-shadow:0 2px 6px rgba(0,0,0,0.05); }
+    label { display:block; margin-top:12px; font-weight:600; }
+    input[type="text"], input[type="number"] { width:140px; padding:8px; margin-top:6px; border-radius:6px; border:1px solid #ccc; }
+    button { margin-top:16px; padding:10px 16px; border-radius:8px; border:0; background:#0b76ef; color:white; cursor:pointer; font-weight:600; }
+    #resultBox { margin-top:16px; padding:14px; border-radius:8px; border:1px solid #ccc; font-weight:600; font-size:1.05em; white-space:pre-line; }
+    .green { background-color:#e6f5e6; color:#2d7a2d; }
+    .red { background-color:#fde6e6; color:#a52b2b; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Υπολογιστής Κέρδους/Ζημιάς & Αποτίμησης</h1>
+
+    <label>Τιμή Αγοράς (ανά μετοχή)</label>
+    <input id="buyPrice" type="text" value="3.5" />
+
+    <label>Τρέχουσα Τιμή</label>
+    <input id="currentPrice" type="text" value="3.8" />
+
+    <label>Αριθμός Μετοχών</label>
+    <input id="shares" type="number" value="100" />
+
+    <button id="calcBtn">Υπολόγισε</button>
+
+    <div id="resultBox" style="display:none;"></div>
+  </div>
+
+  <script>
+    function parseNumber(str) {
+      return parseFloat(str.trim().replace(',', '.'));
+    }
+
+    function formatNum(n, digits=2) {
+      if(!isFinite(n)) return '—';
+      return Number(n).toFixed(digits);
+    }
+
+    document.getElementById('calcBtn').addEventListener('click', function(){
+      const buyPrice = parseNumber(document.getElementById('buyPrice').value);
+      const currentPrice = parseNumber(document.getElementById('currentPrice').value);
+      const shares = parseNumber(document.getElementById('shares').value);
+
+      const resultBox = document.getElementById('resultBox');
+
+      if (!isFinite(buyPrice) || !isFinite(currentPrice) || !isFinite(shares) || buyPrice<=0 || shares<=0) {
+        resultBox.style.display = 'block';
+        resultBox.style.backgroundColor = '#fde6e6';
+        resultBox.style.color = '#a52b2b';
+        resultBox.textContent = "Σφάλμα: Εισάγετε έγκυρους αριθμούς για όλες τις τιμές και μεγαλύτερους από 0.";
+        return;
+      }
+
+      const diff = currentPrice - buyPrice;
+      const totalChange = diff * shares;
+      const percentChange = (diff / buyPrice) * 100;
+      const totalCost = buyPrice * shares;
+      const currentValue = currentPrice * shares;
+
+      let text = `Συνολικό κόστος απόκτησης: ${formatNum(totalCost,2)} €\n`;
+      text += `Τρέχουσα αξία επένδυσης: ${formatNum(currentValue,2)} €\n\n`;
+
+      if(diff > 0){
+        text += `Κέρδος: ${formatNum(totalChange,2)} € (${formatNum(percentChange,2)}%)`;
+        resultBox.className = 'green';
+      } else if(diff < 0){
+        text += `Ζημιά: ${formatNum(Math.abs(totalChange),2)} € (${formatNum(Math.abs(percentChange),2)}%)`;
+        resultBox.className = 'red';
+      } else {
+        text += `Χωρίς κέρδος ή ζημιά.`;
+        resultBox.className = '';
+      }
+
+      resultBox.style.display = 'block';
+      resultBox.textContent = text;
+    });
+  </script>
+</body>
+</html>
