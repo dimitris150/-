@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Υπολογιστής % Αλλαγής Μετοχής</title>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; max-width:800px; margin:40px auto; padding:0 20px; line-height:1.45; color:#111; }
+    h1 { margin-bottom:6px; }
+    .card { border:1px solid #ddd; padding:18px; border-radius:8px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);}
+    label { display:block; margin-top:12px; font-weight:600; }
+    input[type="text"] { width:140px; padding:8px; margin-top:6px; border-radius:6px; border:1px solid #ccc; }
+    button { margin-top:14px; padding:10px 14px; border-radius:8px; border:0; background:#0b76ef; color:white; cursor:pointer; }
+    .result { margin-top:16px; padding:12px; background:#f7f9ff; border-radius:6px; border:1px solid #e2e8ff; }
+    .steps { margin-top:12px; font-family:monospace; background:#fff; padding:10px; border-radius:6px; border:1px dashed #ddd; }
+    .muted { color:#666; font-size:0.95em; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Υπολογιστής ποσοστού αλλαγής</h1>
+    <p class="muted">Συμπλήρωσε την τιμή από την οποία ξεκινάμε (αρχική) και την τελική τιμή. Η σελίδα δείχνει το ποσοστό αλλαγής και τα βήματα της πράξης.</p>
+
+    <label>Αρχική τιμή (π.χ. 3.8)</label>
+    <input id="initial" type="text" value="3.8" />
+
+    <label>Τελική τιμή (π.χ. 3.3)</label>
+    <input id="final" type="text" value="3.3" />
+
+    <label style="margin-top:10px;">
+      <input id="showSteps" type="checkbox" checked /> Εμφάνιση βημάτων
+    </label>
+
+    <div>
+      <button id="calcBtn">Υπολόγισε</button>
+      <button id="swapBtn" style="background:#666; margin-left:8px;">Άλλαξε (swap) τιμές</button>
+    </div>
+
+    <div id="output" class="result" aria-live="polite" style="display:none;">
+      <div id="summary"></div>
+      <div id="steps" class="steps" style="display:none;"></div>
+    </div>
+  </div>
+
+  <script>
+    // Βοηθητική συνάρτηση: μετατρέπει κόμματα σε τελείες και επιστρέφει float ή NaN
+    function parseNumber(str) {
+      if (typeof str !== 'string') return NaN;
+      str = str.trim().replace(',', '.');
+      return parseFloat(str);
+    }
+
+    function formatNum(n, digits=2) {
+      if (!isFinite(n)) return '—';
+      return Number(n).toFixed(digits);
+    }
+
+    document.getElementById('calcBtn').addEventListener('click', function(){
+      const rawInitial = document.getElementById('initial').value;
+      const rawFinal = document.getElementById('final').value;
+      const showSteps = document.getElementById('showSteps').checked;
+
+      const initial = parseNumber(rawInitial);
+      const final = parseNumber(rawFinal);
+
+      const output = document.getElementById('output');
+      const summary = document.getElementById('summary');
+      const steps = document.getElementById('steps');
+
+      if (!isFinite(initial) || !isFinite(final)) {
+        output.style.display = 'block';
+        summary.innerHTML = '<strong>Σφάλμα:</strong> Εισήγαγες μη έγκυρους αριθμούς. Χρησιμοποίησε τελεία ή κόμμα για το δεκαδικό (π.χ. 3.8 ή 3,8).';
+        steps.style.display = 'none';
+        return;
+      }
+      if (initial === 0) {
+        output.style.display = 'block';
+        summary.innerHTML = '<strong>Σφάλμα:</strong> Η αρχική τιμή δεν μπορεί να είναι 0.';
+        steps.style.display = 'none';
+        return;
+      }
+
+      // Διαφορά (τελική - αρχική)
+      const diff = final - initial;             // αν αρνητικό => πτώση, θετικό => άνοδος
+      const fraction = diff / initial;         // κλάσμα με βάση την αρχική τιμή
+      const percent = fraction * 100;
+
+      // Εμφάνιση: ποσοστό με πρόσημο και απόλυτο ποσοστό
+      const upOrDown = diff === 0 ? 'Χωρίς αλλαγή' : (diff > 0 ? 'Άνοδος' : 'Πτώση');
+      const sign = percent > 0 ? '+' : '';
+
+      summary.innerHTML =
+        `<strong>Αποτέλεσμα:</strong> ${upOrDown} — ${sign}${formatNum(percent,2)}% ` +
+        `<div class="muted" style="margin-top:8px;">Διαφορά: ${formatNum(Math.abs(diff),4)} ευρώ (από ${initial} → ${final})</div>`;
+
+      // Βήματα
+      if (showSteps) {
+        steps.style.display = 'block';
+        const stepLines = [];
+        // Βήμα 1
+        stepLines.push(`Βήμα 1: Υπολογίζουμε τη διαφορά (τελική - αρχική):`);
+        stepLines.push(`  ${final} - ${initial} = ${formatNum(diff,4)} ευρώ`);
+        stepLines.push('');
+        // Βήμα 2
+        stepLines.push(`Βήμα 2: Διαιρούμε τη διαφορά με την αρχική τιμή (για να βρούμε ποιο μέρος της αρχικής αξίας είναι):`);
+        stepLines.push(`  ${formatNum(diff,4)} ÷ ${initial} = ${formatNum(fraction,6)}`);
+        stepLines.push('');
+        // Βήμα 3
+        stepLines.push(`Βήμα 3: Πολλαπλασιάζουμε επί 100 για να το εκφράσουμε σε %:`);
+        stepLines.push(`  ${formatNum(fraction,6)} × 100 = ${formatNum(percent,2)} %`);
+        stepLines.push('');
+        stepLines.push(`Σημείωση: Αν θέλεις το απόλυτο ποσοστό (χωρίς πρόσημο), συγκρίνεις το μέγεθος της αλλαγής σε σχέση με την αρχική τιμή (π.χ. πτώση ≈ ${formatNum(Math.abs(percent),2)}%).`);
+        steps.textContent = stepLines.join('\n');
+      } else {
+        steps.style.display = 'none';
+      }
+
+      output.style.display = 'block';
+    });
+
+    // swap button
+    document.getElementById('swapBtn').addEventListener('click', function(){
+      const ini = document.getElementById('initial');
+      const fin = document.getElementById('final');
+      const t = ini.value;
+      ini.value = fin.value;
+      fin.value = t;
+    });
+
+    // Allow Enter key to calculate
+    [document.getElementById('initial'), document.getElementById('final')].forEach(el=>{
+      el.addEventListener('keydown', function(e){
+        if (e.key === 'Enter') {
+          document.getElementById('calcBtn').click();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
