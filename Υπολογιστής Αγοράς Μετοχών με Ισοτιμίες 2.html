@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<title>Υπολογιστής Αγοράς & Πώλησης Μετοχών με Ισοτιμίες</title>
+<style>
+body { font-family: Arial,sans-serif; max-width:900px; margin:30px auto; background:#f5f8fb; color:#111; }
+.card { background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 15px rgba(0,0,0,0.08); }
+h1 { text-align:center; color:#0b4d8a; }
+label { display:block; margin-top:10px; font-weight:600; }
+input, select { padding:8px 10px; margin-top:5px; border-radius:6px; border:1px solid #bbb; width:200px; }
+button { margin-top:12px; padding:10px 14px; border:none; border-radius:8px; background:#0078d7; color:#fff; cursor:pointer; font-weight:700; }
+button:hover { background:#005fa3; }
+#result { margin-top:18px; padding:14px; border-radius:8px; background:#eef6ff; white-space:pre-line; font-weight:600; }
+#loading { display:none; color:#0078d7; font-style:italic; }
+.error { background:#fde6e6; border:1px solid #f5c2c2; padding:10px; border-radius:8px; margin-top:12px; color:#8b1d1d; }
+.muted { font-size:0.95rem; color:#555; }
+.green { color:green; font-weight:700; }
+.red { color:red; font-weight:700; }
+</style>
+</head>
+<body>
+<div class="card">
+<h1>Υπολογιστής Αγοράς & Πώλησης Μετοχών</h1>
+
+<label>Νόμισμα Μετοχής</label>
+<select id="currency">
+<option value="EUR">Ευρώ (€)</option>
+<option value="USD">Δολάριο ($)</option>
+<option value="GBP">Λίρα (£)</option>
+<option value="JPY">Γιεν (¥)</option>
+<option value="CHF">Ελβετικό Φράγκο (CHF)</option>
+<option value="AUD">Δολάριο Αυστραλίας (AUD)</option>
+<option value="CAD">Δολάριο Καναδά (CAD)</option>
+</select>
+
+<label>Διαθέσιμο Κεφάλαιο (στο ίδιο νόμισμα)</label>
+<input id="capital" type="number" step="0.01" value="1000" />
+
+<label>Τιμή Μετοχής Αγοράς</label>
+<input id="stockPrice" type="number" step="0.01" value="3.5" />
+
+<label>Προμήθεια ανά εντολή</label>
+<input id="orderFee" type="number" step="0.01" value="2.0" />
+
+<label>Προμήθεια ανά μετοχή</label>
+<input id="shareFee" type="number" step="0.01" value="0.02" />
+
+<label>Νόμισμα προμηθειών</label>
+<select id="feeCurrency">
+<option value="EUR">EUR</option>
+<option value="same">Νόμισμα αγοράς</option>
+</select>
+
+<div style="margin-top:10px;">
+<input type="checkbox" id="autoRate" checked /> <span class="muted">Χρήση αυτόματης ισοτιμίας (EUR → επιλεγμένο νόμισμα)</span>
+</div>
+
+<label>Χειροκίνητη ισοτιμία (1 EUR = ? επιλεγμένο νόμισμα)</label>
+<input id="manualRate" type="number" step="0.000001" placeholder="π.χ. 1.0874" />
+
+<label>Τιμή Μετοχής Πώλησης (για εκτίμηση κέρδους/ζημιάς)</label>
+<input id="sellPrice" type="number" step="0.01" placeholder="π.χ. 4.0" />
+
+<div style="margin-top:10px;">
+<button id="calcBtn">Υπολόγισε</button>
+<span id="loading">🔄 Φόρτωση ισοτιμίας...</span>
+</div>
+
+<div id="errorBox" class="error" style="display:none;"></div>
+<div id="result" style="display:none;"></div>
+</div>
+
+<script>
+const currencySymbols = { EUR:'€', USD:'$', GBP:'£', JPY:'¥', CHF:'CHF', AUD:'AUD', CAD:'CAD' };
+
+async function fetchRateEURto(target){
+  if(target==='EUR') return 1;
+  const url='https://open.er-api.com/v6/latest/EUR';
+  const resp=await fetch(url);
+  if(!resp.ok) throw new Error('Network error');
+  const data=await resp.json();
+  if(data.result!=='success') throw new Error('API error');
+  const rate=data.rates[target];
+  if(!rate) throw new Error('No rate for target');
+  return rate;
+}
+
+function formatNum(n,d=2){ return isFinite(n)? n.toFixed(d):'—'; }
+
+document.getElementById('calcBtn').addEventListener('click',async function(){
+  const currency=document.getElementById('currency').value;
+  const capital=parseFloat(document.getElementById('capital').value);
+  const stockPrice=parseFloat(document.getElementById('stockPrice').value);
+  const orderFee=parseFloat(document.getElementById('orderFee').value);
+  const shareFee=parseFloat(document.getElementById('shareFee').value);
+  const feeCurrency=document.getElementById('feeCurrency').value;
+  const sellPrice=parseFloat(document.getElementById('sellPrice').value);
+  const useAuto=document.getElementById('autoRate').checked;
+  const manualRateVal=parseFloat(document.getElementById('manualRate').value);
+  const loading=document.getElementById('loading');
+  const errorBox=document.getElementById('errorBox');
+  const resultBox=document.getElementById('result');
+  errorBox.style.display='none'; resultBox.style.display='none'; errorBox.textContent=''; resultBox.textContent='';
+
+  if(isNaN(capital)||capital<=0||isNaN(stockPrice)||stockPrice<=0){
+    errorBox.style.display='block'; errorBox.textContent='⚠️ Εισάγετε θετικό διαθέσιμο κεφάλαιο και τιμή μετοχής.'; return;
+  }
+  if(isNaN(orderFee)||orderFee<0||isNaN(shareFee)||shareFee<0){
+    errorBox.style.display='block'; errorBox.textContent='⚠️ Εισάγετε έγκυρες τιμές προμηθειών.'; return;
+  }
+
+  let rate=1;
+  try{
+    if(useAuto){
+      loading.style.display='inline';
+      rate=await fetchRateEURto(currency);
+    } else {
+      if(isNaN(manualRateVal)||manualRateVal<=0){
+        errorBox.style.display='block'; errorBox.textContent='⚠️ Εισάγετε θετική χειροκίνητη ισοτιμία.'; return;
+      }
+      rate=manualRateVal;
+    }
+  }catch(err){ loading.style.display='none'; errorBox.style.display='block'; errorBox.textContent='⚠️ Σφάλμα στην ανάκτηση ισοτιμίας.'; return; }
+  finally{ loading.style.display='none'; }
+
+  let convertedOrderFee = feeCurrency==='EUR'? orderFee*rate : orderFee;
+  let convertedShareFee = feeCurrency==='EUR'? shareFee*rate : shareFee;
+
+  let shares=Math.floor((capital-convertedOrderFee)/(stockPrice+convertedShareFee));
+  if(shares<1){ resultBox.style.display='block'; resultBox.style.background='#fde6e6'; resultBox.textContent=`❌ Το κεφάλαιο δεν επαρκεί για αγορά ούτε μιας μετοχής (${currency}).`; return; }
+
+  const totalFees=convertedOrderFee+(shares*convertedShareFee);
+  const totalCost=(shares*stockPrice)+totalFees;
+  const remaining=capital-totalCost;
+  const sym=currencySymbols[currency]||currency;
+
+  let profit=NaN;
+  if(!isNaN(sellPrice) && sellPrice>0){
+    profit=(shares*sellPrice)-totalCost;
+  }
+
+  let out=`📌 ΑΠΟΤΕΛΕΣΜΑΤΑ (${currency})\n\n`;
+  out+=`Ισοτιμία: 1 EUR = ${formatNum(rate,6)} ${currency}\n\n`;
+  out+=`Μπορείτε να αγοράσετε: ${shares} μετοχές\n`;
+  out+=`Σύνολο προμηθειών: ${formatNum(totalFees,2)} ${sym}\n`;
+  out+=`Συνολικό κόστος αγοράς: ${formatNum(totalCost,2)} ${sym}\n`;
+  out+=`Υπόλοιπο κεφαλαίου: ${formatNum(remaining,2)} ${sym}\n`;
+
+  if(!isNaN(profit)){
+    out+=`\n💰 Εκτιμώμενο καθαρό κέρδος/ζημιά πώλησης: ${formatNum(profit,2)} ${sym}`;
+  }
+
+  resultBox.style.display='block';
+  if(!isNaN(profit)){
+    resultBox.style.background=profit>=0?'#e6ffed':'#fde6e6';
+    resultBox.style.color=profit>=0?'green':'red';
+  } else {
+    resultBox.style.background='#eef6ff'; resultBox.style.color='black';
+  }
+  resultBox.textContent=out;
+});
+</script>
+</body>
+</html>
