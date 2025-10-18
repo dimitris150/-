@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <title>Υπολογιστής Αγοράς Μετοχών με Ισοτιμίες</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      line-height: 1.6;
+      color: #111;
+      background-color: #f7f9fb;
+    }
+    h1 { text-align: center; color: #003366; }
+    .card {
+      border: 1px solid #ccc;
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    input[type="number"], select {
+      width: 160px; padding: 8px; margin-top: 4px;
+      border: 1px solid #bbb; border-radius: 6px;
+    }
+    button {
+      margin-top: 18px; padding: 10px 18px;
+      border: none; border-radius: 8px;
+      background: #0078d7; color: white; font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { background: #005fa3; }
+    #result {
+      margin-top: 22px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 16px;
+      background: #eef5ff;
+      white-space: pre-line;
+      font-weight: 600;
+    }
+    #loading { display: none; color: #0078d7; margin-top: 8px; font-style: italic; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Υπολογιστής Αγοράς Μετοχών με Ισοτιμίες</h1>
+
+    <label>Επιλογή Νομίσματος</label>
+    <select id="currency">
+      <option value="EUR">Ευρώ (EUR)</option>
+      <option value="USD">Δολάριο (USD)</option>
+      <option value="GBP">Λίρα (GBP)</option>
+    </select>
+
+    <label>Διαθέσιμο Κεφάλαιο</label>
+    <input type="number" id="capital" value="1000" step="0.01">
+
+    <label>Τιμή Μετοχής</label>
+    <input type="number" id="stockPrice" value="3.50" step="0.01">
+
+    <label>Προμήθεια Εντολής (€)</label>
+    <input type="number" id="orderFee" value="2" step="0.01">
+
+    <label>Προμήθεια Ανά Μετοχή (€)</label>
+    <input type="number" id="shareFee" value="0.02" step="0.01">
+
+    <button onclick="calculate()">Υπολόγισε</button>
+    <div id="loading">🔄 Ανάκτηση ισοτιμίας...</div>
+
+    <div id="result" style="display:none;"></div>
+  </div>
+
+  <script>
+    async function getExchangeRate(from, to) {
+      // Αν η βάση και ο στόχος είναι το ίδιο νόμισμα, επιστρέφει 1
+      if (from === to) return 1;
+      const url = `https://api.exchangerate.host/latest?base=${from}&symbols=${to}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      return data.rates[to];
+    }
+
+    async function calculate() {
+      const capital = parseFloat(document.getElementById('capital').value);
+      const stockPrice = parseFloat(document.getElementById('stockPrice').value);
+      const orderFeeEUR = parseFloat(document.getElementById('orderFee').value);
+      const shareFeeEUR = parseFloat(document.getElementById('shareFee').value);
+      const currency = document.getElementById('currency').value;
+
+      const resultBox = document.getElementById('result');
+      const loading = document.getElementById('loading');
+      resultBox.style.display = 'none';
+      loading.style.display = 'block';
+
+      // Αν το επιλεγμένο νόμισμα δεν είναι ευρώ, φέρνουμε ισοτιμία
+      const rate = await getExchangeRate("EUR", currency);
+      loading.style.display = 'none';
+
+      // Μετατροπή προμηθειών στο επιλεγμένο νόμισμα
+      const orderFee = orderFeeEUR * rate;
+      const shareFee = shareFeeEUR * rate;
+
+      if (isNaN(capital) || isNaN(stockPrice) || capital <= 0 || stockPrice <= 0) {
+        resultBox.style.display = 'block';
+        resultBox.style.background = '#fde6e6';
+        resultBox.textContent = "⚠️ Παρακαλώ εισάγετε έγκυρα θετικά ποσά.";
+        return;
+      }
+
+      // Υπολογισμός τεμαχίων
+      let shares = Math.floor((capital - orderFee) / (stockPrice + shareFee));
+      if (shares < 1) {
+        resultBox.style.display = 'block';
+        resultBox.style.background = '#fde6e6';
+        resultBox.textContent = "❌ Το κεφάλαιο δεν επαρκεί για αγορά ούτε μιας μετοχής.";
+        return;
+      }
+
+      const totalFees = orderFee + (shares * shareFee);
+      const totalCost = (shares * stockPrice) + totalFees;
+      const remaining = capital - totalCost;
+
+      const symbol = currency === 'EUR' ? '€' :
+                     currency === 'USD' ? '$' :
+                     currency === 'GBP' ? '£' : currency;
+
+      let text = `📊 Αποτελέσματα Υπολογισμού (${currency}):\n\n`;
+      text += `1 EUR = ${rate.toFixed(4)} ${currency}\n\n`;
+      text += `Μπορείτε να αγοράσετε: ${shares} μετοχές\n`;
+      text += `Σύνολο προμηθειών: ${totalFees.toFixed(2)} ${symbol}\n`;
+      text += `Συνολικό κόστος αγοράς: ${totalCost.toFixed(2)} ${symbol}\n`;
+      text += `Υπόλοιπο κεφαλαίου: ${remaining.toFixed(2)} ${symbol}`;
+
+      resultBox.style.display = 'block';
+      resultBox.style.background = '#e9f5ff';
+      resultBox.textContent = text;
+    }
+  </script>
+
+</body>
+</html>
