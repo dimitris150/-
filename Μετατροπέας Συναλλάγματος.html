@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <title>Μετατροπέας Συναλλάγματος</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 40px auto;
+      color: #111;
+      background-color: #f7f9fb;
+      line-height: 1.6;
+    }
+    h1 {
+      text-align: center;
+      color: #003366;
+    }
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    select, input {
+      width: 180px;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #bbb;
+      margin-top: 6px;
+    }
+    input[type="number"] {
+      width: 150px;
+    }
+    button {
+      margin-top: 14px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      border: none;
+      background: #0078d7;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #005fa3;
+    }
+    #rates {
+      margin-top: 20px;
+      padding: 14px;
+      background: #eef5ff;
+      border-radius: 8px;
+      font-weight: 600;
+      white-space: pre-line;
+    }
+    #loading {
+      color: #0078d7;
+      font-style: italic;
+      display: none;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Μετατροπέας Συναλλάγματος</h1>
+
+    <label>Κύριο νόμισμα</label>
+    <select id="baseCurrency">
+      <option value="EUR">Ευρώ (EUR)</option>
+      <option value="USD">Δολάριο (USD)</option>
+      <option value="GBP">Λίρα (GBP)</option>
+      <option value="JPY">Γιεν (JPY)</option>
+      <option value="CHF">Φράγκο Ελβετίας (CHF)</option>
+      <option value="AUD">Δολάριο Αυστραλίας (AUD)</option>
+      <option value="CAD">Δολάριο Καναδά (CAD)</option>
+    </select>
+
+    <label>Επιθυμητό νόμισμα</label>
+    <select id="targetCurrency">
+      <option value="USD">Δολάριο (USD)</option>
+      <option value="EUR">Ευρώ (EUR)</option>
+      <option value="GBP">Λίρα (GBP)</option>
+      <option value="JPY">Γιεν (JPY)</option>
+      <option value="CHF">Φράγκο Ελβετίας (CHF)</option>
+      <option value="AUD">Δολάριο Αυστραλίας (AUD)</option>
+      <option value="CAD">Δολάριο Καναδά (CAD)</option>
+    </select>
+
+    <label>Ποσό</label>
+    <input type="number" id="amount" placeholder="π.χ. 250" value="1">
+
+    <button onclick="convertCurrency()">Υπολόγισε</button>
+    <div id="loading">🔄 Φόρτωση ισοτιμίας...</div>
+
+    <div id="rates" style="display:none;"></div>
+  </div>
+
+  <script>
+    async function convertCurrency() {
+      const base = document.getElementById('baseCurrency').value;
+      const target = document.getElementById('targetCurrency').value;
+      const amount = parseFloat(document.getElementById('amount').value);
+      const ratesBox = document.getElementById('rates');
+      const loading = document.getElementById('loading');
+
+      if (isNaN(amount) || amount <= 0) {
+        ratesBox.style.display = 'block';
+        ratesBox.textContent = "⚠️ Παρακαλώ εισήγαγε έγκυρο ποσό.";
+        return;
+      }
+
+      ratesBox.style.display = 'none';
+      loading.style.display = 'block';
+
+      try {
+        const response = await fetch(`https://open.er-api.com/v6/latest/${base}`);
+        const data = await response.json();
+
+        if (data.result !== "success") throw new Error("API error");
+
+        const rate = data.rates[target];
+        const converted = amount * rate;
+
+        const resultText = `${amount} ${base} = ${converted.toFixed(2)} ${target}\n\nΙσοτιμία: 1 ${base} = ${rate.toFixed(4)} ${target}`;
+        
+        ratesBox.textContent = resultText;
+        ratesBox.style.display = 'block';
+      } catch (error) {
+        ratesBox.textContent = "⚠️ Σφάλμα κατά τη φόρτωση ισοτιμίας.";
+        ratesBox.style.display = 'block';
+      } finally {
+        loading.style.display = 'none';
+      }
+    }
+
+    // Προεπιλεγμένος υπολογισμός
+    window.onload = convertCurrency;
+  </script>
+
+</body>
+</html>
