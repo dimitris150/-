@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+  <meta charset="UTF-8">
+  <title>Υπολογιστής Αγοράς Μετοχών</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 650px; margin: 40px auto; line-height: 1.6; color: #111; }
+    h1 { text-align: center; color: #004080; }
+    .card { border: 1px solid #ccc; padding: 20px; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    input[type="number"] { width: 150px; padding: 8px; margin-top: 4px; border-radius: 6px; border: 1px solid #bbb; }
+    button { margin-top: 16px; padding: 10px 20px; border-radius: 8px; border: none; background-color: #0078d7; color: white; font-weight: bold; cursor: pointer; }
+    button:hover { background-color: #005fa3; }
+    #result { margin-top: 20px; border: 1px solid #ccc; border-radius: 8px; padding: 14px; background: #f8f9fa; white-space: pre-line; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Υπολογιστής Αγοράς Μετοχών</h1>
+
+    <label>Διαθέσιμο Κεφάλαιο (€)</label>
+    <input type="number" id="capital" value="1000" step="0.01">
+
+    <label>Τιμή Μετοχής (€)</label>
+    <input type="number" id="stockPrice" value="3.50" step="0.01">
+
+    <label>Προμήθεια Εντολής (€)</label>
+    <input type="number" id="orderFee" value="2" step="0.01">
+
+    <label>Προμήθεια Ανά Μετοχή (€)</label>
+    <input type="number" id="shareFee" value="0.02" step="0.01">
+
+    <button onclick="calculate()">Υπολόγισε</button>
+
+    <div id="result" style="display:none;"></div>
+  </div>
+
+  <script>
+    function calculate() {
+      const capital = parseFloat(document.getElementById('capital').value);
+      const stockPrice = parseFloat(document.getElementById('stockPrice').value);
+      const orderFee = parseFloat(document.getElementById('orderFee').value);
+      const shareFee = parseFloat(document.getElementById('shareFee').value);
+
+      const resultBox = document.getElementById('result');
+
+      if (isNaN(capital) || isNaN(stockPrice) || capital <= 0 || stockPrice <= 0) {
+        resultBox.style.display = 'block';
+        resultBox.style.background = '#fde6e6';
+        resultBox.textContent = "⚠️ Παρακαλώ εισάγετε έγκυρα θετικά ποσά.";
+        return;
+      }
+
+      // Υπολογίζουμε πόσα τεμάχια μπορεί να αγοράσει
+      let shares = Math.floor((capital - orderFee) / (stockPrice + shareFee));
+
+      if (shares < 1) {
+        resultBox.style.display = 'block';
+        resultBox.style.background = '#fde6e6';
+        resultBox.textContent = "❌ Το κεφάλαιο δεν επαρκεί για αγορά ούτε μιας μετοχής.";
+        return;
+      }
+
+      const totalFees = orderFee + (shares * shareFee);
+      const totalCost = (shares * stockPrice) + totalFees;
+      const remaining = capital - totalCost;
+
+      let text = `📊 Αποτελέσματα Υπολογισμού:\n\n`;
+      text += `Μπορείτε να αγοράσετε: ${shares} μετοχές\n`;
+      text += `Σύνολο προμηθειών: ${totalFees.toFixed(2)} €\n`;
+      text += `Συνολικό κόστος αγοράς: ${totalCost.toFixed(2)} €\n`;
+      text += `Υπόλοιπο κεφαλαίου: ${remaining.toFixed(2)} €`;
+
+      resultBox.style.display = 'block';
+      resultBox.style.background = '#e9f5ff';
+      resultBox.textContent = text;
+    }
+  </script>
+
+</body>
+</html>
